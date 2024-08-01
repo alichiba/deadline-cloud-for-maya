@@ -46,6 +46,61 @@ class ArnoldHandler(DefaultMayaHandler):
                 flush=True,
             )
 
+        numXTiles = data.get("numXTiles")
+        numYTiles = data.get("numYTiles")
+
+        # Check if this is a tile rendering job (numXTiles and numYTiles are specified as job parameters)
+        if (numXTiles is not None) and (numYTiles is not None):
+            # Check that numXTiles and numYTiles are integers
+            if (not isinstance(numXTiles, int)) or (not isinstance(numYTiles, int)):
+                raise RuntimeError(
+                    "numXTiles and numYTiles variables from run-data must be integers"
+                )
+
+            # Tile num uses 1 based indexing. First tile (top left) is x=1, y=1
+            tileNumX = data.get("tileNumX")
+            tileNumY = data.get("tileNumY")
+            # Check that tileNumX and tileNumY are integers
+            if (not isinstance(tileNumX, int)) or (not isinstance(tileNumY, int)):
+                raise RuntimeError("tileNumX and tileNumY variables from run-data must be integers")
+
+            deltaX, widthRemainder = divmod(self.render_kwargs["width"], numXTiles)
+            deltaY, heightRemainder = divmod(self.render_kwargs["height"], numYTiles)
+
+            # Calculate the border values for the tile
+            # -1 from tilenums for minimums to get the end of the previous tile or 0. This is not done for max values as the max values need to reference the start of the next tile
+            # -1 from max values because Maya uses inclusive ranges and 0 based indexing for coordinates
+            # minX = left, maxX = right, minY = top, maxY = bottom
+            minX = deltaX * (tileNumX - 1)
+            maxX = (deltaX * tileNumX) - 1
+            minY = deltaY * (tileNumY - 1)
+            maxY = (deltaY * tileNumY) - 1
+
+            # Add any remainder to the last row and column
+            if tileNumX == numXTiles:
+                maxX += widthRemainder
+            if tileNumY == numYTiles:
+                maxY += heightRemainder
+
+            # Set the border ranges for the tile (left, right, top, bottom)
+            maya.cmds.setAttr("defaultArnoldRenderOptions.regionMinX", minX)
+            maya.cmds.setAttr("defaultArnoldRenderOptions.regionMaxX", maxX)
+            maya.cmds.setAttr("defaultArnoldRenderOptions.regionMinY", minY)
+            maya.cmds.setAttr("defaultArnoldRenderOptions.regionMaxY", maxY)
+            print(f"minX={minX}, maxX={maxX}, minY={minY}, maxY={maxY}")
+
+            prefix = maya.cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
+
+            # Set an ffmpeg glob pattern type compatible prefix for the tile (_tile_<y-coord>x<x_coord>_<numYtiles>x<numXtiles>_<prefix>) where x-coord and y-coord use 1-based indexing
+            # This command takes inputs in sequential order and assembles them from left to right, top to down which is why the Y value needs to be first
+            maya.cmds.setAttr(
+                "defaultRenderGlobals.imageFilePrefix",
+                f"_tile_{tileNumY}x{tileNumX}_{numYTiles}x{numXTiles}_{prefix}",
+                type="string"
+            )
+
+            print(f'Output file name: {maya.cmds.getAttr("defaultRenderGlobals.imageFilePrefix")}')
+
         # Set the arnold render type so that we don't just make .ass files, but the actual image
         maya.cmds.setAttr("defaultArnoldRenderOptions.renderType", 0)
 
