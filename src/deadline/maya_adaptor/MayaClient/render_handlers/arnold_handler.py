@@ -89,7 +89,7 @@ class ArnoldHandler(DefaultMayaHandler):
             maya.cmds.setAttr("defaultArnoldRenderOptions.regionMaxY", maxY)
             print(f"minX={minX}, maxX={maxX}, minY={minY}, maxY={maxY}")
 
-            prefix = maya.cmds.getAttr("defaultRenderGlobals.imageFilePrefix")
+            prefix = data.get("output_file_prefix")
 
             # Set an ffmpeg glob pattern type compatible prefix for the tile (_tile_<y-coord>x<x_coord>_<numYtiles>x<numXtiles>_<prefix>) where x-coord and y-coord use 1-based indexing
             # This command takes inputs in sequential order and assembles them from left to right, top to down which is why the Y value needs to be first
